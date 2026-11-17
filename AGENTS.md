@@ -64,6 +64,22 @@ CI (`.github/workflows/ci.yml`) на каждый push выполняет ту �
 - **Домен-доки** — single-context: `GLOSSARY.md` + `docs/adr/` в корне (заводятся лениво
   скиллом `/domain-modeling`). См. `docs/agents/domain.md`.
 
+## Агент в GitHub Actions
+
+Claude Code запускается воркфлоу `.github/workflows/claude.yml` по комментарию `@claude`
+доверенного участника в issue/PR (подробности — README.md, «Агент в GitHub»).
+На раннере:
+
+- скиллы — из `.claude/skills/` этого репозитория; название скилла передаётся текстом
+  команды (`@claude запусти скилл to-spec по обсуждению этого issue`);
+- правила — этот файл (его подключает `CLAUDE.md`);
+- трекер — GitHub Issues этого репозитория через `gh`; токен GitHub App (`GH_TOKEN`)
+  выдаёт action, им же агент комментирует и пушит в ветку PR;
+- текст issue/PR и его комментарии агент получает в задаче; вопросы и решения оставляй
+  в обсуждении, чтобы следующая сессия их прочитала;
+- инструменты из `mise.toml` (Java, Node) на раннере не установлены, поэтому
+  `mise run check` там не выполняется — проверки изменений делает воркфлоу `ci.yml`.
+
 ## Правила
 
 - Коммиты — **Conventional Commits** (`feat:`, `fix:`, `chore:`, `build:`, `test:`, …).

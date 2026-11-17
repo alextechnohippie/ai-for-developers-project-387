@@ -82,6 +82,60 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
 
 Рабочие команды и правила проекта — в [AGENTS.md](AGENTS.md).
 
+## Воркфлоу GitHub Actions
+
+| Воркфлоу | Событие | Назначение | Где смотреть результат |
+|---|---|---|---|
+| [`claude.yml`](.github/workflows/claude.yml) | `issue_comment`, `pull_request_review_comment` (`types: [created]`) с командой `@claude` | Агент Claude Code отвечает в обсуждении issue/PR, правит PR | Комментарий от `claude[bot]` в issue/PR; прогон — [Actions → claude](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/claude.yml) |
+| [`ci.yml`](.github/workflows/ci.yml) | `push` в любую ветку, `pull_request` | `mise run install` + `mise run check` (линт, тесты, сборка, e2e) | Статус коммита/PR; [Actions → ci](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/ci.yml) |
+| [`release-please.yml`](.github/workflows/release-please.yml) | `push` в `main` | Готовит release-PR по Conventional Commits | Открытый release-PR |
+| [`hexlet-check.yml`](.github/workflows/hexlet-check.yml) | `push` | Автопроверка Хекслета (не редактировать) | [Actions → hexlet-check](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/hexlet-check.yml) |
+
+### Агент в GitHub (Claude Code)
+
+Агент — [Claude Code](https://github.com/anthropics/claude-code-action) через GitHub App
+[Claude](https://github.com/apps/claude), установленный на этот репозиторий.
+Вызов — комментарием, например `@claude explain this issue` или
+`@claude запусти скилл to-spec по обсуждению этого issue`.
+
+**Почему не OpenCode.** Задание предлагает OpenCode, но допускает другого агента с теми же
+сценариями. OpenCode работает только с API-ключом провайдера (оплата за токены отдельно
+от подписки), а Claude Code GitHub Action умеет работать по подписке Claude Pro/Max.
+Сценарии те же: вызов командой в комментарии issue/PR и в строке diff, ответ
+комментарием от имени приложения, правки в ветке PR, скиллы проекта и трекер из
+`docs/agents/`. Отличия: команда — `@claude` вместо `/oc`, приложение — `claude[bot]`
+вместо `opencode-agent[bot]`, секрет — `CLAUDE_CODE_OAUTH_TOKEN` вместо API-ключа.
+
+- **Модель:** `claude-sonnet-5-5` (`claude_args: --model`), не больше 30 ходов
+  (`--max-turns 30`). Авторизация — секрет `CLAUDE_CODE_OAUTH_TOKEN`
+  (Settings → Secrets and variables → Actions), токен выдаёт `claude setup-token`;
+  вызовы расходуют лимиты подписки, а не API-баланс.
+- **Команда (аналог `mentions`):** `trigger_phrase: "@claude"` — значение по умолчанию,
+  задано в воркфлоу явно. Одна команда, других не добавляем.
+- **Публикация сессий (аналог `share`):** у Claude Code Action публичных ссылок на
+  сессии нет — сессии не публикуются. Результат — комментарий агента в issue/PR, ход
+  прогона — в логе Actions. Отчёт в Step Summary (`display_report`) и полный вывод
+  (`show_full_output`) оставлены выключенными (по умолчанию), чтобы в публичные логи
+  репозитория не попадали содержимое сессии и секреты.
+- **Кто может вызвать:** только владелец, участники и коллабораторы
+  (`author_association`), комментарии ботов игнорируются — иначе задание пропускается
+  без вызова модели. Action дополнительно требует у автора права `write` и по умолчанию
+  не пускает ботов (`allowed_bots` не задан). Fork-PR секретов не получают:
+  `pull_request_target` не используется.
+- **Права:** `contents: read` и `id-token: write` (OIDC-токен меняется на токен
+  GitHub App — им агент читает issues через `gh`, комментирует и пушит),
+  `persist-credentials: false` у checkout. Остальное по умолчанию закрыто
+  (`permissions: {}`).
+- **Ограничения:** `timeout-minutes: 30`; `concurrency` — один прогон на номер issue/PR,
+  следующий ждёт в очереди. Остановить текущий прогон — *Cancel workflow*, отключить
+  будущие — *Disable workflow* в Actions; при необходимости токен отзывается
+  в настройках аккаунта Claude.
+- **Скиллы и настройки на раннере:** раннер стартует с чистого окружения, но скиллы
+  [mattpocock/skills](https://github.com/mattpocock/skills) лежат в репозитории в
+  `.claude/skills/` — родном каталоге проектных скиллов Claude Code. `CLAUDE.md`
+  подключает `AGENTS.md`, вместе с кодом приходят настройки трекера `docs/agents/`.
+  Глобальных скиллов воркфлоу не требует.
+
 ---
 
 <details>

@@ -1,0 +1,52 @@
+name: claude
+
+# Интерактивный агент Claude Code: отвечает на @claude в комментарии
+# к issue/PR и в комментарии к строке diff PR.
+# Описание событий, модели и результатов — в README.md (раздел «Агент в GitHub»).
+on:
+  issue_comment:
+    types: [created] # правка комментария не запускает агента повторно
+  pull_request_review_comment:
+    types: [created]
+
+# Ничего не выдаём по умолчанию; права заданы на уровне задания.
+permissions: {}
+
+# Один прогон агента на issue/PR за раз; следующий ждёт в очереди.
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    # Модель не вызывается, если:
+    #  - автор — бот (агент не отвечает сам себе);
+    #  - автор не владелец/участник/коллаборатор репозитория (чужие и fork-контрибьюторы);
+    #  - в тексте нет команды @claude.
+    # Дополнительно action сам проверяет у автора права write и не пускает ботов.
+    if: >-
+      github.event.comment.user.type != 'Bot' &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+      contains(github.event.comment.body, '@claude')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # чтение репозитория при checkout
+      id-token: write # OIDC-токен -> токен GitHub App Claude (комментарии, issues, push, PR)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run Claude Code
+        # Закреплено на коммит релиза v1.0.278.
+        uses: anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452 # v1.0.278
+        with:
+          # Подписка Claude Pro/Max: токен из `claude setup-token`, API-ключ не нужен.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          trigger_phrase: "@claude"
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 30
