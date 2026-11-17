@@ -72,6 +72,9 @@ Claude Code запускается воркфлоу `.github/workflows/claude.ym
 
 - скиллы — из `.claude/skills/` этого репозитория; название скилла передаётся текстом
   команды (`@claude запусти скилл to-spec по обсуждению этого issue`);
+- скиллы с `disable-model-invocation: true` во frontmatter (например `to-spec`,
+  `to-tickets`, `implement-spec`, `triage`) не видны модели как инструмент; когда в команде
+  просят «запусти скилл X», прочитай `.claude/skills/X/SKILL.md` и выполни его инструкции;
 - правила — этот файл (его подключает `CLAUDE.md`);
 - трекер — GitHub Issues этого репозитория через `gh`; токен GitHub App (`GH_TOKEN`)
   выдаёт action, им же агент комментирует и пушит в ветку PR;
