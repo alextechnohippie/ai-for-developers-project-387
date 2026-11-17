@@ -1,0 +1,214 @@
+openapi: 3.0.0
+info:
+  title: Calendar API
+  version: 0.0.0
+tags: []
+paths:
+  /api/bookings:
+    get:
+      operationId: listBookings
+      description: Все записи владельца, отсортированные по времени начала (по возрастанию).
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+    post:
+      operationId: createBooking
+      description: Создать запись на свободный слот. Сервер проверяет легальность старта и конфликт.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+  /api/health:
+    get:
+      operationId: getHealth
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/meeting-types:
+    get:
+      operationId: listMeetingTypes
+      description: Список типов встреч, доступных для записи.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingType'
+  /api/meeting-types/{meetingTypeId}/slots:
+    get:
+      operationId: listSlots
+      description: Свободные слоты выбранного типа встречи на окно записи (14 дней с завтрашнего).
+      parameters:
+        - name: meetingTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+components:
+  schemas:
+    ApiError:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Машиночитаемый код ошибки.
+        message:
+          type: string
+          description: Сообщение для показа гостю.
+      description: 'Ошибка API: машинный код и человекочитаемое сообщение.'
+    Booking:
+      type: object
+      required:
+        - id
+        - meetingTypeId
+        - start
+        - end
+        - guestName
+      properties:
+        id:
+          type: string
+          description: Идентификатор записи.
+        meetingTypeId:
+          type: string
+          description: Тип встречи.
+        start:
+          type: string
+          format: date-time
+          description: Начало встречи (включительно), UTC.
+        end:
+          type: string
+          format: date-time
+          description: Конец встречи (исключительно), UTC; выводится как start + длительность типа.
+        guestName:
+          type: string
+          description: Имя гостя.
+      description: Запись гостя на встречу.
+    CreateBookingRequest:
+      type: object
+      required:
+        - meetingTypeId
+        - start
+        - guestName
+      properties:
+        meetingTypeId:
+          type: string
+          description: Тип встречи.
+        start:
+          type: string
+          format: date-time
+          description: Выбранный свободный старт, UTC.
+        guestName:
+          type: string
+          description: Имя гостя.
+      description: 'Запрос на создание записи: end выводит сервер из типа.'
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+      description: Проверка живости сервиса.
+    MeetingType:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          description: Стабильный идентификатор типа.
+        title:
+          type: string
+          description: Название, видимое гостю.
+        description:
+          type: string
+          description: Короткое описание формата встречи.
+        durationMinutes:
+          type: integer
+          format: int32
+          description: Длительность встречи в минутах.
+      description: Тип встречи, который гость может забронировать.
+    Slot:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: Начало слота (включительно), UTC.
+        end:
+          type: string
+          format: date-time
+          description: Конец слота (исключительно), UTC.
+      description: 'Свободный слот: полуоткрытый интервал [start, end) во времени UTC.'
+servers:
+  - url: http://localhost:8080
+    description: Local development
+    variables: {}
