@@ -11,6 +11,7 @@ data class Booking(
     val start: String,
     val end: String,
     val guestName: String,
+    val topic: String? = null,
 )
 
 /** Интервал занятости [start, end) этой брони. */
@@ -22,4 +23,5 @@ data class CreateBookingRequest(
     val meetingTypeId: String,
     val start: String,
     val guestName: String,
+    val topic: String? = null,
 )

@@ -53,6 +53,7 @@ function BookingView({ meeting }: { meeting: MeetingType }) {
   const [reloadToken, setReloadToken] = useState(0);
   const [selectedStart, setSelectedStart] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
+  const [topic, setTopic] = useState("");
   const [confirmation, setConfirmation] = useState<Booking | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -80,14 +81,21 @@ function BookingView({ meeting }: { meeting: MeetingType }) {
     }
     setSubmitting(true);
     setBookingError(null);
+    const trimmedTopic = topic.trim();
     const { data, error } = await createBooking({
-      body: { meetingTypeId: meeting.id, start: selectedStart, guestName },
+      body: {
+        meetingTypeId: meeting.id,
+        start: selectedStart,
+        guestName,
+        ...(trimmedTopic ? { topic: trimmedTopic } : {}),
+      },
     });
     setSubmitting(false);
     if (data) {
       setConfirmation(data);
       setSelectedStart(null);
       setGuestName("");
+      setTopic("");
     } else {
       setBookingError(error?.message ?? "Не удалось создать запись. Попробуйте ещё раз.");
     }
@@ -150,6 +158,14 @@ function BookingView({ meeting }: { meeting: MeetingType }) {
                 className="name-input"
                 value={guestName}
                 onChange={(event) => setGuestName(event.target.value)}
+              />
+              <label htmlFor="booking-topic">Тема разговора</label>
+              <textarea
+                id="booking-topic"
+                className="topic-input"
+                rows={4}
+                value={topic}
+                onChange={(event) => setTopic(event.target.value)}
               />
               {bookingError && (
                 <p className="form-error" role="alert">
@@ -217,6 +233,7 @@ function OwnerView({ meetingTypes }: { meetingTypes: MeetingType[] }) {
                 <span className="owner-time">{formatDateTime(booking.start)} МСК</span>
                 <span className="owner-type">{titleFor(booking.meetingTypeId)}</span>
                 <span className="owner-guest">{booking.guestName}</span>
+                {booking.topic && <p className="owner-topic">{booking.topic}</p>}
               </li>
             ))}
           </ul>

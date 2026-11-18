@@ -189,4 +189,72 @@ describe("Путь гостя", () => {
     expect(screen.getByText("Знакомство")).toBeDefined();
     expect(screen.getByText("Борис")).toBeDefined();
   });
+
+  it("показывает необязательное поле темы и не отправляет пустую тему", async () => {
+    window.history.replaceState(null, "", "/#/book/consultation");
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "09:00" }));
+    fireEvent.change(screen.getByLabelText("Ваше имя"), { target: { value: "Аня" } });
+    const topic = screen.getByLabelText("Тема разговора") as HTMLTextAreaElement;
+    expect(topic.tagName).toBe("TEXTAREA");
+    expect(topic.required).toBe(false);
+    fireEvent.change(topic, { target: { value: "   \n  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Записаться" }));
+    await screen.findByText("Готово! Вы записаны.");
+    expect(createBookingMock).toHaveBeenCalledWith({
+      body: { meetingTypeId: "consultation", start: "2026-11-05T06:00:00Z", guestName: "Аня" },
+    });
+  });
+
+  it("отправляет непустую тему в запросе", async () => {
+    window.history.replaceState(null, "", "/#/book/consultation");
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "09:00" }));
+    fireEvent.change(screen.getByLabelText("Ваше имя"), { target: { value: "Аня" } });
+    fireEvent.change(screen.getByLabelText("Тема разговора"), {
+      target: { value: "  Договор\nСроки  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Записаться" }));
+    await screen.findByText("Готово! Вы записаны.");
+    expect(createBookingMock).toHaveBeenCalledWith({
+      body: {
+        meetingTypeId: "consultation",
+        start: "2026-11-05T06:00:00Z",
+        guestName: "Аня",
+        topic: "Договор\nСроки",
+      },
+    });
+  });
+
+  it("показывает владельцу тему полностью, с переносами строк", async () => {
+    listBookingsMock.mockResolvedValue({
+      data: [{ ...BOOKING, topic: "Первый вопрос\nВторой вопрос" }],
+    });
+    window.history.replaceState(null, "", "/#/owner");
+    render(<App />);
+    const topic = await screen.findByText(
+      (_, element) =>
+        element?.classList.contains("owner-topic") === true &&
+        element.textContent === "Первый вопрос\nВторой вопрос",
+    );
+    expect(topic).toBeDefined();
+  });
+
+  it("не рисует блок темы у записей без темы", async () => {
+    listBookingsMock.mockResolvedValue({ data: [BOOKING, { ...BOOKING, id: "b-2", topic: null }] });
+    window.history.replaceState(null, "", "/#/owner");
+    const { container } = render(<App />);
+    expect(await screen.findAllByText("Аня")).toHaveLength(2);
+    expect(container.querySelector(".owner-topic")).toBeNull();
+  });
+
+  it("выводит HTML-подобную тему как обычный текст", async () => {
+    const html = '<img src=x onerror="alert(1)"> <a href="https://example.com">ссылка</a>';
+    listBookingsMock.mockResolvedValue({ data: [{ ...BOOKING, topic: html }] });
+    window.history.replaceState(null, "", "/#/owner");
+    const { container } = render(<App />);
+    expect(await screen.findByText(html)).toBeDefined();
+    expect(container.querySelector(".owner-topic img")).toBeNull();
+    expect(container.querySelector(".owner-topic a")).toBeNull();
+  });
 });

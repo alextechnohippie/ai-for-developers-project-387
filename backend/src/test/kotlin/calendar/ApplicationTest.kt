@@ -14,6 +14,13 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalTime
@@ -241,6 +248,70 @@ class ApplicationTest {
         assertEquals(listOf("introduction", "consultation"), bookings.map { it.meetingTypeId })
         assertEquals(listOf("Анна", "Борис"), bookings.map { it.guestName })
     }
+
+    @Test
+    fun `booking with a topic returns it in the response and in the list`() = testApplication {
+        application { module(FIXED_CLOCK) }
+
+        val response = client.bookWithTopic("consultation", "2026-11-05T06:00:00Z", "Анна", "Обсудить договор")
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals("Обсудить договор", response.json().topic())
+        val listed = client.get("/api/bookings").bodyAsText().let { Json.parseToJsonElement(it) }.jsonArray
+        assertEquals(listOf("Обсудить договор"), listed.map { it.jsonObject.topic() })
+    }
+
+    @Test
+    fun `booking without a topic works as before and has no topic`() = testApplication {
+        application { module(FIXED_CLOCK) }
+
+        val response = client.book("consultation", "2026-11-05T06:00:00Z", "Анна")
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals(null, response.json().topic())
+        val listed = Json.parseToJsonElement(client.get("/api/bookings").bodyAsText()).jsonArray
+        assertEquals(listOf<String?>(null), listed.map { it.jsonObject.topic() })
+    }
+
+    @Test
+    fun `whitespace-only topic is not stored`() = testApplication {
+        application { module(FIXED_CLOCK) }
+
+        val response = client.bookWithTopic("consultation", "2026-11-05T06:00:00Z", "Анна", "  \n  ")
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals(null, response.json().topic())
+    }
+
+    @Test
+    fun `topic is trimmed and keeps inner line breaks`() = testApplication {
+        application { module(FIXED_CLOCK) }
+
+        val response = client.bookWithTopic(
+            "consultation",
+            "2026-11-05T06:00:00Z",
+            "Анна",
+            "  Первый вопрос\nВторой вопрос \n",
+        )
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals("Первый вопрос\nВторой вопрос", response.json().topic())
+        val listed = Json.parseToJsonElement(client.get("/api/bookings").bodyAsText()).jsonArray
+        assertEquals(listOf<String?>("Первый вопрос\nВторой вопрос"), listed.map { it.jsonObject.topic() })
+    }
+
+    @Test
+    fun `conflicting booking is rejected and its topic is not stored`() = testApplication {
+        application { module(FIXED_CLOCK) }
+
+        client.bookWithTopic("consultation", "2026-11-05T07:00:00Z", "Анна", "Первая тема")
+        val response = client.bookWithTopic("consultation", "2026-11-05T07:00:00Z", "Борис", "Вторая тема")
+
+        assertEquals(HttpStatusCode.Conflict, response.status)
+        assertEquals("SLOT_TAKEN", Json.decodeFromString<ApiError>(response.bodyAsText()).code)
+        val listed = Json.parseToJsonElement(client.get("/api/bookings").bodyAsText()).jsonArray
+        assertEquals(listOf<String?>("Первая тема"), listed.map { it.jsonObject.topic() })
+    }
 }
 
 private suspend fun HttpResponse.slots(): List<Slot> = Json.decodeFromString(bodyAsText())
@@ -250,3 +321,25 @@ private suspend fun HttpClient.book(typeId: String, start: String, guestName: St
         contentType(ContentType.Application.Json)
         setBody("""{"meetingTypeId":"$typeId","start":"$start","guestName":"$guestName"}""")
     }
+
+private suspend fun HttpClient.bookWithTopic(
+    typeId: String,
+    start: String,
+    guestName: String,
+    topic: String,
+): HttpResponse = post("/api/bookings") {
+    contentType(ContentType.Application.Json)
+    setBody(
+        buildJsonObject {
+            put("meetingTypeId", JsonPrimitive(typeId))
+            put("start", JsonPrimitive(start))
+            put("guestName", JsonPrimitive(guestName))
+            put("topic", JsonPrimitive(topic))
+        }.toString(),
+    )
+}
+
+private suspend fun HttpResponse.json(): JsonObject = Json.parseToJsonElement(bodyAsText()).jsonObject
+
+/** Тема из JSON записи; отсутствующее поле и `null` одинаково дают `null`. */
+private fun JsonObject.topic(): String? = this["topic"]?.jsonPrimitive?.contentOrNull

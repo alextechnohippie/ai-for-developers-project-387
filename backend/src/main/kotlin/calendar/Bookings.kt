@@ -42,6 +42,7 @@ object Bookings {
             start = toIsoInstant(startInstant),
             end = toIsoInstant(end),
             guestName = request.guestName,
+            topic = request.topic?.trim()?.takeIf { it.isNotEmpty() },
         )
         return if (store.add(booking)) BookingResult.Created(booking) else BookingResult.Conflict
     }
