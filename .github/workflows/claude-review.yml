@@ -1,5 +1,3 @@
-# ЧЕРНОВИК: у GitHub App Claude нет права `workflows`. После проверки человеком
-# перенести в .github/workflows/claude-review.yml.
 name: claude-review
 
 on:

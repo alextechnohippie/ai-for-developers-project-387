@@ -1,5 +1,3 @@
-# ЧЕРНОВИК: у GitHub App Claude нет права `workflows`. После проверки человеком
-# перенести в .github/workflows/pr-e2e.yml.
 name: pr-e2e
 
 on:
@@ -26,11 +24,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
-      - name: Record checked SHA
-        run: |
-          mkdir -p e2e/test-results
-          git rev-parse HEAD > e2e/test-results/SHA.txt
-
       - uses: jdx/mise-action@v2
         with:
           version: 2026.10.25
@@ -48,12 +41,24 @@ jobs:
           PW_TRACE: "on"
         run: mise run e2e
 
+      # Playwright очищает test-results/ перед прогоном, поэтому SHA и итог пишем после него.
+      - name: Record checked SHA and result
+        if: always()
+        env:
+          RESULT: ${{ steps.e2e.outcome }}
+        run: |
+          mkdir -p e2e/e2e-meta
+          git rev-parse HEAD > e2e/e2e-meta/SHA.txt
+          echo "$RESULT" > e2e/e2e-meta/RESULT.txt
+          echo "checked: $(cat e2e/e2e-meta/SHA.txt), pr head: $HEAD_SHA, result: $RESULT"
+
       - name: Upload e2e artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-${{ github.event.pull_request.head.sha }}
           path: |
+            e2e/e2e-meta/
             e2e/test-results/
             e2e/playwright-report/
 
@@ -64,7 +69,7 @@ jobs:
         run: |
           {
             echo "### Браузерная проверка PR"
-            echo "- SHA: \`$HEAD_SHA\`"
+            echo "- SHA (git rev-parse HEAD): \`$(cat e2e/e2e-meta/SHA.txt)\`"
             echo "- Результат: $RESULT"
             echo "- Артефакт: \`e2e-$HEAD_SHA\`"
           } >> "$GITHUB_STEP_SUMMARY"
