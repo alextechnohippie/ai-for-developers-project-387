@@ -87,6 +87,7 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
 | Воркфлоу | Событие | Назначение | Где смотреть результат |
 |---|---|---|---|
 | [`claude.yml`](.github/workflows/claude.yml) | `issue_comment`, `pull_request_review_comment` (`types: [created]`) с командой `@claude` | Агент Claude Code отвечает в обсуждении issue/PR, правит PR | Комментарий от `claude[bot]` в issue/PR; прогон — [Actions → claude](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/claude.yml) |
+| [`claude-triage.yml`](.github/workflows/claude-triage.yml) | `issues` (`types: [opened]`) | Автотриаж: предварительный разбор нового обращения по скиллу `triage`, метки и один комментарий | Комментарий `claude[bot]` и метки в issue; [Actions → claude-triage](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/claude-triage.yml) |
 | [`ci.yml`](.github/workflows/ci.yml) | `push` в любую ветку, `pull_request` | `mise run install` + `mise run check` (линт, тесты, сборка, e2e) | Статус коммита/PR; [Actions → ci](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/ci.yml) |
 | [`release-please.yml`](.github/workflows/release-please.yml) | `push` в `main` | Готовит release-PR по Conventional Commits | Открытый release-PR |
 | [`hexlet-check.yml`](.github/workflows/hexlet-check.yml) | `push` | Автопроверка Хекслета (не редактировать) | [Actions → hexlet-check](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/hexlet-check.yml) |
@@ -157,3 +158,29 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
 ## О Хекслете
 
 [Хекслет](https://ru.hexlet.io/) — школа программирования: авторские программы обучения с практикой, поддержкой наставников и реальными проектами, которые остаются в резюме. Этот репозиторий — один из таких проектов.
+
+### Автотриаж
+
+Воркфлоу [`claude-triage.yml`](.github/workflows/claude-triage.yml) делает предварительный
+разбор нового обращения по скиллу `triage` — тот же разбор, что агент сделал вручную в #4.
+
+- **Событие:** `issues` с `types: [opened]`.
+- **Модель:** `claude-sonnet-5-5`, не больше 15 ходов (`--max-turns 15`),
+  `timeout-minutes: 15`, `concurrency` по номеру issue. Авторизация — секрет
+  `CLAUDE_CODE_OAUTH_TOKEN`, как в `claude.yml`.
+- **Что делает:** читает `.claude/skills/triage/SKILL.md` и `docs/agents/`, сверяет обращение
+  с тем, что уже умеет приложение (контракт, бэкенд, фронтенд, `GLOSSARY.md`, `docs/adr/`),
+  ставит метку категории и состояния из `docs/agents/triage-labels.md` (`needs-info`, если
+  данных не хватает, иначе `needs-triage`) и оставляет один комментарий с разбором и
+  вопросами. Код не меняет, ветки и PR не создаёт, `ready-for-agent` не ставит — это решает
+  человек.
+- **Фильтры (задание не запускается):** автор — бот (в том числе `claude[bot]`); автор не
+  OWNER/MEMBER/COLLABORATOR; у issue уже есть метка `ready-for-agent` или `ready-for-human`.
+- **Почему тикеты скиллов пропускаются:** issue с метками `ready-for-agent`/`ready-for-human`
+  — это спецификации и тикеты, подготовленные скиллами `to-spec`/`to-tickets`; они уже
+  разобраны, повторный триаж только создал бы шум и расход лимитов.
+- **Где смотреть результат:** комментарий `claude[bot]` и метки в самом issue; прогон —
+  [Actions → claude-triage](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/claude-triage.yml).
+- **Кто добавляет воркфлоу:** файлы воркфлоу в этом репозитории добавляет человек, потому что
+  у GitHub App Claude нет права `workflows` (разрешения приложения задаёт его владелец), и
+  агент не может пушить изменения в `.github/workflows/`.
