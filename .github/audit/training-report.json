@@ -1,0 +1,18 @@
+{
+  "mode": "training",
+  "status": "ok",
+  "url": "https://calendar-zvonkov-96m9.onrender.com",
+  "fetchedAt": "2026-11-18T00:17:00Z",
+  "lighthouseVersion": "training",
+  "note": "УЧЕБНЫЙ ОТЧЁТ: находка подготовлена вручную для демонстрации создания issue, это не результат проверки приложения",
+  "scores": { "performance": 0.82, "accessibility": 1, "best-practices": 1, "seo": 0.9 },
+  "findings": [
+    {
+      "id": "training-unsized-images",
+      "title": "Картинки без явных ширины и высоты",
+      "displayValue": "3 изображения без размеров",
+      "score": 0,
+      "categories": ["performance"]
+    }
+  ]
+}
