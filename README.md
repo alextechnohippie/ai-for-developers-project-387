@@ -118,8 +118,10 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
 `docs/agents/`. Отличия: команда — `@claude` вместо `/oc`, приложение — `claude[bot]`
 вместо `opencode-agent[bot]`, секрет — `CLAUDE_CODE_OAUTH_TOKEN` вместо API-ключа.
 
-- **Модель:** `claude-sonnet-5-5` (`claude_args: --model`), не больше 30 ходов
-  (`--max-turns 30`). Авторизация — секрет `CLAUDE_CODE_OAUTH_TOKEN`
+- **Модель:** `claude-sonnet-5-5` (`claude_args: --model`), не больше 100 ходов
+  (`--max-turns 100`), `Bash(mise run:*)` разрешён без проверки. Перед агентом на раннер ставятся
+  инструменты mise и зависимости (как в `ci.yml`), чтобы он мог перегенерировать OpenAPI/SDK и
+  запускать `mise run check`. Авторизация — секрет `CLAUDE_CODE_OAUTH_TOKEN`
   (Settings → Secrets and variables → Actions), токен выдаёт `claude setup-token`;
   вызовы расходуют лимиты подписки, а не API-баланс.
 - **Команда (аналог `mentions`):** `trigger_phrase: "@claude"` — значение по умолчанию,
@@ -138,7 +140,7 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
   GitHub App — им агент читает issues через `gh`, комментирует и пушит),
   `persist-credentials: false` у checkout. Остальное по умолчанию закрыто
   (`permissions: {}`).
-- **Ограничения:** `timeout-minutes: 30`; `concurrency` — один прогон на номер issue/PR,
+- **Ограничения:** `timeout-minutes: 60`; `concurrency` — один прогон на номер issue/PR,
   следующий ждёт в очереди. Остановить текущий прогон — *Cancel workflow*, отключить
   будущие — *Disable workflow* в Actions; при необходимости токен отзывается
   в настройках аккаунта Claude.

@@ -92,7 +92,7 @@ jobs:
     needs: budget
     if: needs.budget.outputs.allowed == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: read # чтение репозитория при checkout
       id-token: write # OIDC-токен -> токен GitHub App Claude (комментарии, issues, push, PR)
@@ -102,6 +102,20 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
+
+      # Те же инструменты, что локально и в ci.yml: агент может перегенерировать
+      # OpenAPI/SDK и запускать `mise run check` перед push.
+      - name: Setup mise
+        uses: jdx/mise-action@v2
+        with:
+          version: 2026.10.25
+
+      - name: Install dependencies
+        run: mise run install
+
+      - name: Install Playwright system dependencies
+        working-directory: e2e
+        run: npx playwright install-deps chromium
 
       - name: Check token
         env:
@@ -121,7 +135,8 @@ jobs:
           trigger_phrase: "@claude"
           claude_args: |
             --model claude-sonnet-5-5
-            --max-turns 30
+            --max-turns 100
+            --allowedTools "Bash(mise run:*)"
 
   # Отчёт об остановке агента (без модели): исчерпан предел или упал/отменён прогон.
   report:
@@ -146,7 +161,7 @@ jobs:
           ALLOWED: ${{ needs.budget.outputs.allowed }}
           USED: ${{ needs.budget.outputs.used }}
           LIMIT: ${{ needs.budget.outputs.limit }}
-          JOB_TIMEOUT_SECONDS: "1800" # timeout-minutes задания claude * 60
+          JOB_TIMEOUT_SECONDS: "3600" # timeout-minutes задания claude * 60
         run: |
           set -euo pipefail
 
@@ -161,7 +176,7 @@ jobs:
 
             if [ "$CONCLUSION" = "failure" ]; then
               case "$FAILED_STEP" in
-                "Set up job"|"Checkout"|"Check token") REASON="infra" ;;
+                "Set up job"|"Checkout"|"Setup mise"|"Install dependencies"|"Install Playwright system dependencies"|"Check token") REASON="infra" ;;
                 *) REASON="agent_failed" ;;
               esac
             elif [ "$CONCLUSION" = "cancelled" ] && [ "$DURATION" -ge "$JOB_TIMEOUT_SECONDS" ]; then
