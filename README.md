@@ -88,6 +88,8 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
 |---|---|---|---|
 | [`claude.yml`](.github/workflows/claude.yml) | `issue_comment`, `pull_request_review_comment` (`types: [created]`) с командой `@claude` | Агент Claude Code отвечает в обсуждении issue/PR, правит PR | Комментарий от `claude[bot]` в issue/PR; прогон — [Actions → claude](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/claude.yml) |
 | [`claude-triage.yml`](.github/workflows/claude-triage.yml) | `issues` (`types: [opened]`) | Автотриаж: предварительный разбор нового обращения по скиллу `triage`, метки и один комментарий | Комментарий `claude[bot]` и метки в issue; [Actions → claude-triage](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/claude-triage.yml) |
+| [`claude-review.yml`](.github/workflow-drafts/claude-review.yml) (черновик) | `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`) | Независимое авторевью PR по критериям `REVIEW.md` | Комментарий «Авторевью для `<head SHA>`» в PR; Actions → claude-review |
+| [`pr-e2e.yml`](.github/workflow-drafts/pr-e2e.yml) (черновик) | `pull_request` (те же типы) | Браузерный e2e на head SHA PR, артефакт с trace | Артефакт `e2e-<head SHA>` и сводка прогона; Actions → pr-e2e |
 | [`ci.yml`](.github/workflows/ci.yml) | `push` в любую ветку, `pull_request` | `mise run install` + `mise run check` (линт, тесты, сборка, e2e) | Статус коммита/PR; [Actions → ci](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/ci.yml) |
 | [`release-please.yml`](.github/workflows/release-please.yml) | `push` в `main` | Готовит release-PR по Conventional Commits | Открытый release-PR |
 | [`hexlet-check.yml`](.github/workflows/hexlet-check.yml) | `push` | Автопроверка Хекслета (не редактировать) | [Actions → hexlet-check](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/hexlet-check.yml) |
@@ -171,6 +173,61 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
 - **Кто добавляет воркфлоу:** файлы воркфлоу в этом репозитории добавляет человек, потому что
   у GitHub App Claude нет права `workflows` (разрешения приложения задаёт его владелец), и
   агент не может пушить изменения в `.github/workflows/`.
+
+### Авторевью
+
+Черновик [`claude-review.yml`](.github/workflow-drafts/claude-review.yml) — независимое ревью PR
+по критериям из [`REVIEW.md`](REVIEW.md). Черновики лежат в `.github/workflow-drafts/`; в
+`.github/workflows/` их переносит человек после проверки (у GitHub App Claude нет права `workflows`).
+
+- **Событие и модель:** `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`);
+  `claude-sonnet-5-5`, `--max-turns 20`, `timeout-minutes: 15`.
+- **Права:** `permissions: {}` на уровне воркфлоу; у задания `contents: read`, `issues: read`,
+  `pull-requests: write`, `actions: read`, `checks: read`, `statuses: read`. OIDC не нужен.
+- **Фильтры:** не draft; PR из этого же репозитория (fork-PR не запускаются и секретов не получают);
+  автор OWNER/MEMBER/COLLABORATOR **или** `claude[bot]`.
+- **Критерии из базовой ветки:** `REVIEW.md` берётся из `base.sha` (`git show`), поэтому PR не может
+  подменить критерии, по которым его ревьюят. Код читается с `head.sha`.
+- **Публикация отдельным шагом:** модель только пишет `review.md` (редактирование файлов запрещено,
+  из `gh` разрешено чтение); комментарий «Авторевью для `<head SHA>`» со ссылкой на прогон
+  публикует отдельный шаг без модели.
+- **Отмена устаревших запусков:** `concurrency` по номеру PR с `cancel-in-progress: true` — новый
+  push отменяет ревью предыдущего коммита.
+- **Почему CLI, а не action:** `claude -p` с явным списком `--allowedTools` даёт полный контроль над
+  правами и публикацией результата; action на PR-событиях пришлось бы наделять правом писать в репозиторий.
+- **Почему PR `claude[bot]` тоже ревьюятся:** PR агента не менее рискованны, чем человеческие, а ревью
+  должно быть независимым от автора; поэтому тип `Bot` целиком не отсекается, пропускается только `claude[bot]`.
+
+### Браузерная проверка PR
+
+Черновик [`pr-e2e.yml`](.github/workflow-drafts/pr-e2e.yml) прогоняет `mise run e2e` на версии автора.
+
+- **Head SHA вместо merge-коммита:** checkout `github.event.pull_request.head.sha`, а не
+  `refs/pull/N/merge`; проверяется именно тот код, который видит ревьюер. SHA записывается в
+  `SHA.txt` и в сводку прогона.
+- **Trace:** `PW_TRACE=on` включает Playwright trace для каждого теста; html-отчёт `playwright-report/`.
+- **Артефакт:** `e2e-<head SHA>` (`e2e/test-results/`, `e2e/playwright-report/`) загружается даже при провале.
+- **Права:** `contents: read`, без секретов; только PR из этого репозитория; `timeout-minutes: 20`.
+- **Сверка перед мержем:** убедиться, что SHA в имени артефакта равен текущему head PR и совпадает с
+  SHA в комментарии авторевью; после нового push результат устарел.
+
+### Предел запусков
+
+Черновик [`claude.yml`](.github/workflow-drafts/claude.yml) ограничивает агента **тремя вызовами на PR**.
+
+- **Когда проверяется:** задание `budget` (без модели) идёт до задания `claude`; при `used >= 3`
+  модель не вызывается. Для комментариев в обычном issue предел не применяется.
+- **Как считается:** прогоны `claude.yml` с именем `claude #<N>` (`run-name`), задания `claude` всех
+  попыток (`filter=all`) с итогом не `skipped` и не пустым — успешные, упавшие, отменённые, по
+  тайм-ауту и повторные (Re-run). Текущая попытка текущего прогона исключается.
+- **Почему агент не может переписать счётчик:** счётчик — история прогонов Actions; у токена
+  заданий `budget` только `actions: read`, а у GitHub App Claude нет права на `workflows`
+  и записи в Actions. Изменить имя прогона или итоги заданий агент не может.
+- **Причины остановки:** задание `report` (без модели) пишет комментарий «⛔ Агент остановлен — нужен человек»
+  с причиной, `used/limit`, SHA и ссылкой на логи: `limit_exhausted` (предел исчерпан), `infra`
+  (упал `Set up job`, `Checkout` или `Check token`), `agent_failed` (упал `Run Claude Code`),
+  `timeout` (задание отменено по тайм-ауту), `cancelled` (отмена вручную — смотреть логи).
+- **Шаг `Check token`:** падает, если секрет `CLAUDE_CODE_OAUTH_TOKEN` пуст.
 
 ---
 
