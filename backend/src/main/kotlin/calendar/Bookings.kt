@@ -29,7 +29,7 @@ object Bookings {
         }
 
         val topic = request.topic?.trim()?.takeIf { it.isNotEmpty() }
-        if (topic != null && topic.length > MAX_TOPIC_LENGTH) {
+        if (topic != null && topic.codePointCount(0, topic.length) > MAX_TOPIC_LENGTH) {
             return BookingResult.Invalid("Тема разговора не должна быть длиннее $MAX_TOPIC_LENGTH символов.")
         }
 

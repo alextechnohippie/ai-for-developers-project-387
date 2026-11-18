@@ -340,6 +340,22 @@ class ApplicationTest {
     }
 
     @Test
+    fun `topic limit counts code points, not UTF-16 units`() = testApplication {
+        application { module(FIXED_CLOCK) }
+        val emoji = "😀"
+
+        val ok = client.bookWithTopic("consultation", "2026-11-05T06:00:00Z", "Анна", emoji.repeat(500))
+        assertEquals(HttpStatusCode.Created, ok.status)
+        assertEquals(emoji.repeat(500), ok.json().topic())
+
+        val tooLong = client.bookWithTopic("consultation", "2026-11-05T07:00:00Z", "Борис", emoji.repeat(501))
+        assertEquals(HttpStatusCode.BadRequest, tooLong.status)
+        val error = Json.decodeFromString<ApiError>(tooLong.bodyAsText())
+        assertEquals("VALIDATION_ERROR", error.code)
+        assertEquals("Тема разговора не должна быть длиннее 500 символов.", error.message)
+    }
+
+    @Test
     fun `topic limit is applied after trim`() = testApplication {
         application { module(FIXED_CLOCK) }
 
