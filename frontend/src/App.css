@@ -148,6 +148,15 @@
   width: 100%;
   max-width: 320px;
 }
+.topic-input {
+  padding: 10px 12px;
+  border: 1px solid #cfdcf7;
+  border-radius: 9px;
+  font: inherit;
+  width: 100%;
+  max-width: 480px;
+  resize: vertical;
+}
 .form-actions {
   display: flex;
   gap: 12px;
@@ -202,6 +211,18 @@
 }
 .owner-guest {
   color: #536079;
+}
+.field-hint {
+  margin: 0;
+  color: #536079;
+  font-size: 0.9rem;
+}
+.confirmation-topic,
+.owner-topic {
+  flex-basis: 100%;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .confirmation {
   margin-top: 8px;

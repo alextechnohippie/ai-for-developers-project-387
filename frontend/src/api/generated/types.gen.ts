@@ -42,6 +42,10 @@ export type Booking = {
      * Имя гостя.
      */
     guestName: string;
+    /**
+     * Тема разговора; отсутствует, если гость её не указал.
+     */
+    topic?: string;
 };
 
 /**
@@ -60,6 +64,10 @@ export type CreateBookingRequest = {
      * Имя гостя.
      */
     guestName: string;
+    /**
+     * Необязательная тема разговора; сервер обрезает пробелы по краям, пустая считается не заданной.
+     */
+    topic?: string;
 };
 
 /**

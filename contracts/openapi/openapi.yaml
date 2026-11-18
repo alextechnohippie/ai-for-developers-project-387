@@ -144,6 +144,9 @@ components:
         guestName:
           type: string
           description: Имя гостя.
+        topic:
+          type: string
+          description: Тема разговора; отсутствует, если гость её не указал.
       description: Запись гостя на встречу.
     CreateBookingRequest:
       type: object
@@ -162,6 +165,9 @@ components:
         guestName:
           type: string
           description: Имя гостя.
+        topic:
+          type: string
+          description: Необязательная тема разговора; сервер обрезает пробелы по краям, пустая считается не заданной.
       description: 'Запрос на создание записи: end выводит сервер из типа.'
     HealthResponse:
       type: object
