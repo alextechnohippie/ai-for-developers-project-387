@@ -89,8 +89,9 @@ Claude Code запускается воркфлоу `.github/workflows/claude.ym
   при остановке задание `report` пишет причину (`README.md`, «Предел запусков»);
 - воркфлоу агент готовит черновиком (`.github/workflow-drafts/`, в ветке PR), в `.github/workflows/`
   их переносит человек;
-- инструменты из `mise.toml` (Java, Node) на раннере не установлены, поэтому
-  `mise run check` там не выполняется — проверки изменений делает воркфлоу `ci.yml`.
+- инструменты из `mise.toml` (Java, Node) и зависимости ставятся на раннере до запуска агента:
+  после изменения контракта выполни `mise run contract:build` и `mise run sdk:generate`, перед push —
+  `mise run check`; итоговую проверку PR всё равно делает `ci.yml`.
 
 ## Правила
 
