@@ -106,7 +106,7 @@ jobs:
       # Те же инструменты, что локально и в ci.yml: агент может перегенерировать
       # OpenAPI/SDK и запускать `mise run check` перед push.
       - name: Setup mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
         with:
           version: 2026.10.25
 
@@ -136,7 +136,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 100
-            --allowedTools "Bash(mise run:*)"
+            --allowedTools "Bash(mise run install),Bash(mise run check),Bash(mise run check:fast),Bash(mise run fmt),Bash(mise run contract:build),Bash(mise run sdk:generate)"
 
   # Отчёт об остановке агента (без модели): исчерпан предел или упал/отменён прогон.
   report:

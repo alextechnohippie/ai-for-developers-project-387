@@ -119,7 +119,8 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
 вместо `opencode-agent[bot]`, секрет — `CLAUDE_CODE_OAUTH_TOKEN` вместо API-ключа.
 
 - **Модель:** `claude-sonnet-5-5` (`claude_args: --model`), не больше 100 ходов
-  (`--max-turns 100`), `Bash(mise run:*)` разрешён без проверки. Перед агентом на раннер ставятся
+  (`--max-turns 100`), без проверки разрешены только задачи `mise run install`, `check`, `check:fast`, `fmt`,
+  `contract:build`, `sdk:generate`. Перед агентом на раннер ставятся
   инструменты mise и зависимости (как в `ci.yml`), чтобы он мог перегенерировать OpenAPI/SDK и
   запускать `mise run check`. Авторизация — секрет `CLAUDE_CODE_OAUTH_TOKEN`
   (Settings → Secrets and variables → Actions), токен выдаёт `claude setup-token`;
