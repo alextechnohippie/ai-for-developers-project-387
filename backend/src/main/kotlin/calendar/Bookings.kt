@@ -12,9 +12,6 @@ sealed interface BookingResult {
     data object Conflict : BookingResult
 }
 
-/** Максимальная длина темы разговора после trim. */
-private const val MAX_TOPIC_LENGTH = 500
-
 /** Прикладная логика создания записи: валидация легальности старта, вывод end, атомарная вставка. */
 object Bookings {
     // Ранние возвраты — это guard-clause-валидация (неизвестный тип, пустое имя,
@@ -26,11 +23,6 @@ object Bookings {
 
         if (request.guestName.isBlank()) {
             return BookingResult.Invalid("Укажите имя гостя.")
-        }
-
-        val topic = request.topic?.trim()?.takeIf { it.isNotEmpty() }
-        if (topic != null && topic.length > MAX_TOPIC_LENGTH) {
-            return BookingResult.Invalid("Тема разговора не должна быть длиннее $MAX_TOPIC_LENGTH символов.")
         }
 
         val startInstant = runCatching { Instant.parse(request.start) }.getOrNull()
@@ -50,7 +42,6 @@ object Bookings {
             start = toIsoInstant(startInstant),
             end = toIsoInstant(end),
             guestName = request.guestName,
-            topic = topic,
         )
         return if (store.add(booking)) BookingResult.Created(booking) else BookingResult.Conflict
     }
