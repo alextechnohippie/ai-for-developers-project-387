@@ -1,9 +1,12 @@
 package calendar
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import java.time.Instant
 
 /** Запись гостя на встречу. start/end — ISO-8601 UTC, полуоткрытый интервал [start, end). */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class Booking(
     val id: String,
@@ -11,6 +14,8 @@ data class Booking(
     val start: String,
     val end: String,
     val guestName: String,
+    /** Тема разговора; без темы поле не попадает в JSON (в контракте оно необязательное). */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
     val topic: String? = null,
 )
 

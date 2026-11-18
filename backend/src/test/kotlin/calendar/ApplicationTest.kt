@@ -268,9 +268,10 @@ class ApplicationTest {
         val response = client.book("consultation", "2026-11-05T06:00:00Z", "Анна")
 
         assertEquals(HttpStatusCode.Created, response.status)
-        assertEquals(null, response.json().topic())
+        // По контракту topic — необязательная строка: без темы поля нет вовсе (не null).
+        assertEquals(false, response.json().containsKey("topic"))
         val listed = Json.parseToJsonElement(client.get("/api/bookings").bodyAsText()).jsonArray
-        assertEquals(listOf<String?>(null), listed.map { it.jsonObject.topic() })
+        assertEquals(listOf(false), listed.map { it.jsonObject.containsKey("topic") })
     }
 
     @Test
