@@ -245,8 +245,9 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
     `score < 0.5`; порог считает `jq`, а не модель. Если приложение не ответило, сводка получает
     `status: unavailable` — это «нет данных», а не находка.
   - Задание `analyze`: Claude Code с инструкцией в `prompt`, режим GitHub App
-    (`contents: read` + `id-token: write`). Разрешены только `gh issue` и `gh label`; код,
-    ветки и PR агент не трогает.
+    (`contents: read` + `id-token: write`). Разрешены `Read`, `Write` (вывод и тела issue в
+    `$RUNNER_TEMP/audit`), из `gh` — только `issue list/view/create/comment` и `label list/create`;
+    код, ветки и PR агент не трогает.
 - **Расписание.** Не чаще раза в сутки; `timeout-minutes: 15` у обоих заданий;
   `concurrency: audit` — один аудит за раз. GitHub может задержать или пропустить запуск по
   расписанию, а в публичном репозитории расписание отключается после 60 дней без активности.
