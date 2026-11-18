@@ -312,6 +312,42 @@ class ApplicationTest {
         val listed = Json.parseToJsonElement(client.get("/api/bookings").bodyAsText()).jsonArray
         assertEquals(listOf<String?>("Первая тема"), listed.map { it.jsonObject.topic() })
     }
+
+    @Test
+    fun `topic of exactly 500 characters is accepted`() = testApplication {
+        application { module(FIXED_CLOCK) }
+
+        val response = client.bookWithTopic("consultation", "2026-11-05T06:00:00Z", "Анна", "т".repeat(500))
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals("т".repeat(500), response.json().topic())
+    }
+
+    @Test
+    fun `topic longer than 500 characters returns 400 in the guestName error format`() = testApplication {
+        application { module(FIXED_CLOCK) }
+
+        val response = client.bookWithTopic("consultation", "2026-11-05T06:00:00Z", "Анна", "т".repeat(501))
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        val error = Json.decodeFromString<ApiError>(response.bodyAsText())
+        assertEquals("VALIDATION_ERROR", error.code)
+        assertEquals("Тема разговора не должна быть длиннее 500 символов.", error.message)
+        // Запись не создана: слот остался свободным.
+        val listed = Json.parseToJsonElement(client.get("/api/bookings").bodyAsText()).jsonArray
+        assertEquals(0, listed.size)
+    }
+
+    @Test
+    fun `topic limit is applied after trim`() = testApplication {
+        application { module(FIXED_CLOCK) }
+
+        val padded = "  " + "т".repeat(500) + "\n "
+        val response = client.bookWithTopic("consultation", "2026-11-05T06:00:00Z", "Анна", padded)
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertEquals("т".repeat(500), response.json().topic())
+    }
 }
 
 private suspend fun HttpResponse.slots(): List<Slot> = Json.decodeFromString(bodyAsText())

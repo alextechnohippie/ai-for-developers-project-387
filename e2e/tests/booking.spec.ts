@@ -46,6 +46,8 @@ test("гость указывает тему разговора, владеле�
   await page.getByLabel("Тема разговора").fill("Первый вопрос\nВторой вопрос");
   await page.getByRole("button", { name: "Записаться" }).click();
   await expect(page.getByText("Готово! Вы записаны.")).toBeVisible();
+  // Гость видит отправленную тему на экране подтверждения.
+  await expect(page.locator(".confirmation-topic")).toHaveText("Первый вопрос\nВторой вопрос");
 
   await page.goto("/#/owner");
   const item = page.locator(".owner-item").filter({ hasText: guestName });

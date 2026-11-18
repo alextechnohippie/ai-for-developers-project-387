@@ -115,6 +115,12 @@ function BookingView({ meeting }: { meeting: MeetingType }) {
             {meeting.title} — {formatDateTime(confirmation.start)} МСК
           </p>
           <p>Имя гостя: {confirmation.guestName}</p>
+          {confirmation.topic && (
+            <>
+              <p>Тема разговора:</p>
+              <p className="confirmation-topic">{confirmation.topic}</p>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -164,9 +170,13 @@ function BookingView({ meeting }: { meeting: MeetingType }) {
                 id="booking-topic"
                 className="topic-input"
                 rows={4}
+                aria-describedby="booking-topic-hint"
                 value={topic}
                 onChange={(event) => setTopic(event.target.value)}
               />
+              <p id="booking-topic-hint" className="field-hint">
+                до 500 символов
+              </p>
               {bookingError && (
                 <p className="form-error" role="alert">
                   {bookingError}
