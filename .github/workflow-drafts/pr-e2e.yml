@@ -1,0 +1,70 @@
+# ЧЕРНОВИК: у GitHub App Claude нет права `workflows`. После проверки человеком
+# перенести в .github/workflows/pr-e2e.yml.
+name: pr-e2e
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-e2e-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Record checked SHA
+        run: |
+          mkdir -p e2e/test-results
+          git rev-parse HEAD > e2e/test-results/SHA.txt
+
+      - uses: jdx/mise-action@v2
+        with:
+          version: 2026.10.25
+
+      - name: Install dependencies
+        run: mise run install
+
+      - name: Install Playwright system dependencies
+        working-directory: e2e
+        run: npx playwright install-deps chromium
+
+      - name: Run e2e
+        id: e2e
+        env:
+          PW_TRACE: "on"
+        run: mise run e2e
+
+      - name: Upload e2e artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ github.event.pull_request.head.sha }}
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+
+      - name: Summary
+        if: always()
+        env:
+          RESULT: ${{ steps.e2e.outcome == 'success' && 'успех' || 'провал' }}
+        run: |
+          {
+            echo "### Браузерная проверка PR"
+            echo "- SHA: \`$HEAD_SHA\`"
+            echo "- Результат: $RESULT"
+            echo "- Артефакт: \`e2e-$HEAD_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"

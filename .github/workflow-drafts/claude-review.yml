@@ -1,0 +1,86 @@
+# ЧЕРНОВИК: у GitHub App Claude нет права `workflows`. После проверки человеком
+# перенести в .github/workflows/claude-review.yml.
+name: claude-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) ||
+        github.event.pull_request.user.login == 'claude[bot]'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: write
+      actions: read
+      checks: read
+      statuses: read
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Критерии — из базовой ветки: PR не может подменить их.
+      - name: Load review criteria from base
+        run: git show "$BASE_SHA":REVIEW.md > "$RUNNER_TEMP/REVIEW.md"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code@2.1.318
+
+      - name: Review
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          claude -p "Ты независимый ревьюер PR #$PR_NUMBER в репозитории $GITHUB_REPOSITORY (head $HEAD_SHA, base $BASE_SHA).
+          1. Прочитай критерии ревью из файла $RUNNER_TEMP/REVIEW.md.
+          2. Прочитай описание PR (gh pr view $PR_NUMBER) и по ссылкам из него исходное issue, спецификацию, тикеты и комментарий согласования (gh issue view).
+          3. Изучи diff base...head (gh pr diff $PR_NUMBER, git diff $BASE_SHA...$HEAD_SHA) и при необходимости код вокруг.
+          4. Посмотри статусы CI (gh pr checks $PR_NUMBER). Они могут быть ещё в процессе — так и напиши.
+          Если ссылок нет, они недоступны или изменение выходит за согласованный объём — отметь это как пробел.
+          Выведи ревью в Markdown строго по формату из REVIEW.md. Код не меняй." \
+            --model claude-sonnet-5-5 \
+            --max-turns 20 \
+            --allowedTools "Read,Glob,Grep,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(gh issue view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)" \
+            --disallowedTools "Edit,Write,NotebookEdit" \
+            > "$RUNNER_TEMP/review.md"
+
+      # Публикация — отдельный шаг без модели.
+      - name: Publish review comment
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "### Авторевью для \`$HEAD_SHA\`"
+            echo
+            echo "[Прогон]($RUN_URL)"
+            echo
+            cat "$RUNNER_TEMP/review.md"
+          } > "$RUNNER_TEMP/comment.md"
+          gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/comment.md"
