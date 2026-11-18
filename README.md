@@ -90,6 +90,7 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
 | [`claude-triage.yml`](.github/workflows/claude-triage.yml) | `issues` (`types: [opened]`) | Автотриаж: предварительный разбор нового обращения по скиллу `triage`, метки и один комментарий | Комментарий `claude[bot]` и метки в issue; [Actions → claude-triage](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/claude-triage.yml) |
 | [`claude-review.yml`](.github/workflows/claude-review.yml) | `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`) | Независимое авторевью PR по критериям `REVIEW.md` | Комментарий «Авторевью для `<head SHA>`» в PR; Actions → claude-review |
 | [`pr-e2e.yml`](.github/workflows/pr-e2e.yml) | `pull_request` (те же типы) | Браузерный e2e на head SHA PR, артефакт с trace | Артефакт `e2e-<head SHA>` и сводка прогона; Actions → pr-e2e |
+| [`audit.yml`](.github/workflows/audit.yml) | `schedule` (`17 3 * * *`, `timezone: Europe/Moscow` — 03:17 МСК), `workflow_dispatch` со входом `training` | Ежедневный аудит Lighthouse и разбор отчёта агентом; см. [«Аудит по расписанию»](#аудит-по-расписанию) | Issue [«Журнал аудита» #23](https://github.com/alextechnohippie/ai-for-developers-project-387/issues/23), issue с меткой `audit`, сводка прогона, артефакт `audit-report-<run_id>`; [Actions → audit](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/audit.yml) |
 | [`ci.yml`](.github/workflows/ci.yml) | `push` в любую ветку, `pull_request` | `mise run install` + `mise run check` (линт, тесты, сборка, e2e) | Статус коммита/PR; [Actions → ci](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/ci.yml) |
 | [`release-please.yml`](.github/workflows/release-please.yml) | `push` в `main` | Готовит release-PR по Conventional Commits | Открытый release-PR |
 | [`hexlet-check.yml`](.github/workflows/hexlet-check.yml) | `push` | Автопроверка Хекслета (не редактировать) | [Actions → hexlet-check](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/workflows/hexlet-check.yml) |
@@ -231,6 +232,46 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
   (упал `Set up job`, `Checkout` или `Check token`), `agent_failed` (упал `Run Claude Code`),
   `timeout` (задание отменено по тайм-ауту), `cancelled` (отмена вручную — смотреть логи).
 - **Шаг `Check token`:** падает, если секрет `CLAUDE_CODE_OAUTH_TOKEN` пуст.
+
+### Аудит по расписанию
+
+[`audit.yml`](.github/workflows/audit.yml) раз в сутки проверяет страницу приложения Lighthouse-ом,
+а агент разбирает отчёт и заводит issue по новым находкам.
+
+- **Как устроен.**
+  - Задание `lighthouse` (без модели и секретов): будит инстанс запросами на `/api/health`,
+    запускает Lighthouse 13.6.0 по адресу из `vars.APP_URL` с `--preset=desktop` и собирает
+    сводку `summary.json` через `jq`. Находка — аудит с весом > 0 хотя бы в одной категории и
+    `score < 0.5`; порог считает `jq`, а не модель. Если приложение не ответило, сводка получает
+    `status: unavailable` — это «нет данных», а не находка.
+  - Задание `analyze`: Claude Code с инструкцией в `prompt`, режим GitHub App
+    (`contents: read` + `id-token: write`). Разрешены только `gh issue` и `gh label`; код,
+    ветки и PR агент не трогает.
+- **Расписание.** Не чаще раза в сутки; `timeout-minutes: 15` у обоих заданий;
+  `concurrency: audit` — один аудит за раз. GitHub может задержать или пропустить запуск по
+  расписанию, а в публичном репозитории расписание отключается после 60 дней без активности.
+- **Дубли.** В теле issue стоит маркер `<!-- audit-finding: <id> -->`. Агент берёт все issue с
+  меткой `audit` и сверяет маркер точно (без `--search`: HTML-комментарии поиск индексирует
+  ненадёжно). Открытый дубль — issue не создаётся, в журнале «уже есть #N». Закрытый — новый issue
+  с пометкой «повторное появление». Не больше 3 новых issue за прогон.
+- **Учебный отчёт.** `.github/audit/training-report.json` подставляется при ручном запуске с
+  `training=true`. Issue получает префикс `[Учебная]` и метку `training` — это не подтверждённый
+  дефект приложения.
+- **Где хранится результат.** Отчёт Lighthouse (JSON + HTML) и `summary.json` лежат только в
+  `$RUNNER_TEMP` и в артефакте `audit-report-<run_id>` (30 дней); в рабочее дерево и коммиты они не
+  попадают. Долговременно — вывод агента в issue
+  [«Журнал аудита» #23](https://github.com/alextechnohippie/ai-for-developers-project-387/issues/23)
+  и в сводке прогона; находки — отдельные issue.
+- **Результаты запусков** из `main`:
+
+  | Запуск | Прогон | Итог |
+  |---|---|---|
+  | Живой | [44257575150](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/runs/44257575150) | Оценки: performance 1, accessibility 1, best-practices 0.96, seo 1. Реальная находка `errors-in-console` (404 на `/favicon.ico`) → #22 |
+  | Учебный | [44257859564](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/runs/44257859564) | Учебная находка `training-unsized-images` → #24 |
+  | Повторный учебный | [44258063529](https://github.com/alextechnohippie/ai-for-developers-project-387/actions/runs/44258063529) | Дубль найден («уже есть #24»), новых issue нет |
+
+- **Что дальше с находкой.** Новая находка — входящее обращение с меткой `needs-triage`: решение
+  взять её в работу принимает человек, дальше обычная цепочка спецификации и тикетов.
 
 ---
 
