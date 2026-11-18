@@ -11,10 +11,10 @@ export default defineConfig({
   workers: 1,
   timeout: 30_000,
   expect: { timeout: 10_000 },
-  reporter: "line",
+  reporter: [["line"], ["html", { open: "never" }]],
   use: {
     baseURL: "http://localhost:4173",
-    trace: "on-first-retry",
+    trace: process.env.PW_TRACE === "on" ? "on" : "on-first-retry",
   },
   webServer: [
     {
