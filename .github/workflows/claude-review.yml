@@ -41,8 +41,17 @@ jobs:
           persist-credentials: false
 
       # Критерии — из базовой ветки: PR не может подменить их.
+      # Исключение — PR, который впервые добавляет REVIEW.md: тогда берём версию из head
+      # и явно помечаем это в комментарии ревью.
       - name: Load review criteria from base
-        run: git show "$BASE_SHA":REVIEW.md > "$RUNNER_TEMP/REVIEW.md"
+        run: |
+          if git show "$BASE_SHA":REVIEW.md > "$RUNNER_TEMP/REVIEW.md" 2>/dev/null; then
+            echo "CRITERIA_SOURCE=base \`$BASE_SHA\`" >> "$GITHUB_ENV"
+          else
+            cp REVIEW.md "$RUNNER_TEMP/REVIEW.md"
+            echo "::warning::REVIEW.md нет в базовой ветке — критерии взяты из head PR"
+            echo "CRITERIA_SOURCE=head (в базовой ветке REVIEW.md ещё нет)" >> "$GITHUB_ENV"
+          fi
 
       - uses: actions/setup-node@v4
         with:
@@ -77,7 +86,7 @@ jobs:
           {
             echo "### Авторевью для \`$HEAD_SHA\`"
             echo
-            echo "[Прогон]($RUN_URL)"
+            echo "[Прогон]($RUN_URL) · критерии \`REVIEW.md\`: $CRITERIA_SOURCE"
             echo
             cat "$RUNNER_TEMP/review.md"
           } > "$RUNNER_TEMP/comment.md"
