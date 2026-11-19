@@ -245,7 +245,8 @@ docker run --rm -e PORT=3000 -p 3000:3000 calendar-zvonkov
     `score < 0.5`; порог считает `jq`, а не модель. Если приложение не ответило, сводка получает
     `status: unavailable` — это «нет данных», а не находка.
   - Задание `analyze`: Claude Code с инструкцией в `prompt`, режим GitHub App
-    (`contents: read` + `id-token: write`). Разрешены `Read`, `Write` (вывод и тела issue в
+    (`contents: read` + `id-token: write`). Модель — `claude-sonnet-5-5` (`claude_args: --model`),
+    не больше 20 ходов (`--max-turns 20`). Разрешены `Read`, `Write` (вывод и тела issue в
     `$RUNNER_TEMP/audit`), из `gh` — только `issue list/view/create/comment` и `label list/create`;
     код, ветки и PR агент не трогает.
 - **Расписание.** Не чаще раза в сутки; `timeout-minutes: 15` у обоих заданий;
