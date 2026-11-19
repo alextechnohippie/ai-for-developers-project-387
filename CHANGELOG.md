@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/alextechnohippie/ai-for-developers-project-387/compare/v1.1.0...v1.2.0) (2026-11-19)
+
+
+### Features
+
+* тема на подтверждении и лимит длины ([#10](https://github.com/alextechnohippie/ai-for-developers-project-387/issues/10)) ([aa2c898](https://github.com/alextechnohippie/ai-for-developers-project-387/commit/aa2c898b56a3e7a62edba6a9687c67d012a612e5))
+* тема разговора при записи на встречу ([#9](https://github.com/alextechnohippie/ai-for-developers-project-387/issues/9), [#10](https://github.com/alextechnohippie/ai-for-developers-project-387/issues/10)) ([a8dbbab](https://github.com/alextechnohippie/ai-for-developers-project-387/commit/a8dbbab50d8a32b854073b1253ee8a9b879ad710))
+* тема разговора у владельца ([#9](https://github.com/alextechnohippie/ai-for-developers-project-387/issues/9)) ([5619568](https://github.com/alextechnohippie/ai-for-developers-project-387/commit/5619568be0524a5badf13f6f8db290a1b628e5c7))
+
+
+### Bug Fixes
+
+* длина темы в символах, а не в UTF-16 ([#10](https://github.com/alextechnohippie/ai-for-developers-project-387/issues/10)) ([b7fcc30](https://github.com/alextechnohippie/ai-for-developers-project-387/commit/b7fcc30ee7b36806ae6096e671b74dc09d977f35))
+* не отдавать topic: null у записи без темы ([#9](https://github.com/alextechnohippie/ai-for-developers-project-387/issues/9)) ([a10134a](https://github.com/alextechnohippie/ai-for-developers-project-387/commit/a10134a4f754fcbf29eb6fd2bb9c0d5fc75a4b58))
+
 ## [1.1.0](https://github.com/alextechnohippie/ai-for-developers-project-386/compare/v1.0.0...v1.1.0) (2026-11-05)
 
 
